@@ -1,0 +1,61 @@
+{
+    // CONFIGURE LANGUAGE SERVER
+    "python.languageServer": "Pylance",
+    // CONFIGURE PATHS
+    "terminal.integrated.cwd": "${workspaceFolder}",
+    "terminal.integrated.defaultProfile.osx": "zsh",
+    "python.defaultInterpreterPath": "${workspaceFolder}/.venv/bin/python",
+    // CONFIGURE DEFAULT FORMATTERS
+    "editor.defaultFormatter": "charliermarsh.ruff",
+    "[sql]": {
+        "editor.defaultFormatter": "mtxr.sqltools"
+    },
+    "[json]": {
+        "editor.defaultFormatter": "vscode.json-language-features"
+    },
+    "editor.formatOnSave": true,
+    "editor.codeActionsOnSave": {
+        "source.organizeImports": "always"
+    },
+    "sqltools.format": {
+        "language": "sql",
+        "linesBetweenQueries": 2,
+        "reservedWordCase": "upper"
+    },
+    // CONFIGURE PYTEST
+    "python.testing.pytestEnabled": true,
+    "python.testing.unittestEnabled": false,
+    "python.testing.pytestPath": "${workspaceFolder}/.venv/bin/activate -m pytest",
+    "python.testing.autoTestDiscoverOnSaveEnabled": true,
+    // Configure indent Rainbow
+    "indentRainbow.indicatorStyle": "light",
+    "indentRainbow.lightIndicatorStyleLineWidth": 1,
+    "indentRainbow.colors": [
+        "rgba(255,255,64,0.3)",
+        "rgba(127,255,127,0.3)",
+        "rgba(255,127,255,0.3)",
+        "rgba(79,236,236,0.3)"
+    ],
+    // configure cspell
+    "cSpell.words": [
+        "assettypes",
+        "billofmaterials",
+        "bson",
+        "chunksize",
+        "CODEOWNERS",
+        "dagster",
+        "externalidentifier",
+        "INITDB",
+        "jobtype",
+        "jobtypes",
+        "longtextvalues",
+        "osxkeychain",
+        "Overvu",
+        "pkey",
+        "publishedbomtypes",
+        "pyproject",
+        "pyright",
+        "tasktype",
+        "tasktypes"
+    ],
+}

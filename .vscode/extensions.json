@@ -1,0 +1,25 @@
+{
+    "recommendations": [
+        //applies pyright highlighting (configured in pyproject.toml)
+        "ms-python.vscode-pylance",
+        //applies ruff formatting for on save (configured in pyproject.toml and hooked into editor in settings.json)
+        "charliermarsh.ruff",
+        //docker tools
+        "ms-azuretools.vscode-docker",
+        // provides syntax highlighting for toml 
+        "tamasfe.even-better-toml",
+        // provides syntax highlighting for inline sql 
+        "qufiwefefwoyn.inline-sql-syntax",
+        // default extension pack for python.  Most importantly, it sets up the debugger
+        "donjayamanne.python-extension-pack",
+        // provides sql database support on the left hand toolbar 
+        // Also our default sql formatter
+        "mtxr.sqltools",
+        // makes reading indentation easier
+        "oderwat.indent-rainbow",
+        // linter for github actions 
+        "omartawfik.github-actions-vscode",
+        // Copilot
+        "github.copilot",
+    ]
+}

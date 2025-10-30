@@ -1,0 +1,44 @@
+#Environment management
+[project]
+name = "root"
+version = "1.0.0"
+readme = "README.md"
+authors = [
+    { name = "risky-rickman", email = "brickman@eknengineering.com" }
+]
+requires-python = ">=3.12,<3.13"
+dependencies = [
+    "python-chess>=1.999",
+    "torch>=2.9.0",
+]
+
+[dependency-groups]
+dev = [
+    "pytest>=8.3.5",
+    "pyright>=1.1.403",
+    "ruff>=0.11.12",
+    "debugpy>=1.8.16",
+]
+
+[tool.pyright]
+typeCheckingMode = "basic"
+
+[tool.ruff]
+line-length = 120
+# ignore = [
+#     "N999" # this is to ignore the error for __init__
+# ]
+
+[tool.ruff.format]
+skip-magic-trailing-comma = true # a trailing comma in a list (of parameters for ex) shouldn't stop a reformat
+
+[tool.ruff.lint.isort]
+split-on-trailing-comma = false
+
+[tool.ruff.lint]
+select = [
+    "I",  # Import sorting
+    "N",  # Naming conventions
+    "Q",  # Error-prone constructs
+    "F"   # imported but unused 
+]
