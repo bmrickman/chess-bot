@@ -1,4 +1,5 @@
 import random
+from typing import Dict, List, Tuple, Union
 
 import torch
 import torch.nn as nn
@@ -9,14 +10,14 @@ import torch.optim as optim
 class ResidualBlock(nn.Module):
     """A residual block with two convolutional layers"""
 
-    def __init__(self, channels=256):
+    def __init__(self, channels: int = 256) -> None:
         super(ResidualBlock, self).__init__()
         self.conv1 = nn.Conv2d(channels, channels, kernel_size=3, padding=1)
         self.bn1 = nn.BatchNorm2d(channels)
         self.conv2 = nn.Conv2d(channels, channels, kernel_size=3, padding=1)
         self.bn2 = nn.BatchNorm2d(channels)
 
-    def forward(self, x):
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
         residual = x
         out = F.relu(self.bn1(self.conv1(x)))
         out = self.bn2(self.conv2(out))
@@ -28,7 +29,7 @@ class ResidualBlock(nn.Module):
 class AlphaZeroNet(nn.Module):
     """AlphaZero-style neural network for chess"""
 
-    def __init__(self, num_res_blocks=20, num_channels=256, input_planes=119):
+    def __init__(self, num_res_blocks: int = 20, num_channels: int = 256, input_planes: int = 106) -> None:
         super(AlphaZeroNet, self).__init__()
 
         # Initial convolutional block
@@ -49,7 +50,7 @@ class AlphaZeroNet(nn.Module):
         self.value_fc1 = nn.Linear(32 * 8 * 8, 256)
         self.value_fc2 = nn.Linear(256, 1)
 
-    def forward(self, x):
+    def forward(self, x: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor]:
         # Initial conv block
         x = F.relu(self.bn_input(self.conv_input(x)))
 
@@ -71,7 +72,14 @@ class AlphaZeroNet(nn.Module):
         return policy, value
 
 
-def alphazero_loss(policy_logits, policy_targets, value_preds, value_targets, policy_weight=1.0, value_weight=1.0):
+def alphazero_loss(
+    policy_logits: torch.Tensor,
+    policy_targets: torch.Tensor,
+    value_preds: torch.Tensor,
+    value_targets: torch.Tensor,
+    policy_weight: float = 1.0,
+    value_weight: float = 1.0,
+) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
     """
     Combined loss function for AlphaZero
 
@@ -84,7 +92,7 @@ def alphazero_loss(policy_logits, policy_targets, value_preds, value_targets, po
         value_weight: Weight for value loss
 
     Returns:
-        total_loss, policy_loss, value_loss
+        Tuple of (total_loss, policy_loss, value_loss)
     """
     # Policy loss: Cross-entropy between predicted and target policy
     # We use log_softmax + NLLLoss, which is equivalent to CrossEntropyLoss
@@ -100,7 +108,14 @@ def alphazero_loss(policy_logits, policy_targets, value_preds, value_targets, po
     return total_loss, policy_loss, value_loss
 
 
-def train_step(model, optimizer, states, policy_targets, value_targets, device="cpu"):
+def train_step(
+    model: AlphaZeroNet,
+    optimizer: optim.Optimizer,
+    states: torch.Tensor,
+    policy_targets: torch.Tensor,
+    value_targets: torch.Tensor,
+    device: Union[str, torch.device] = "cpu",
+) -> Dict[str, float]:
     """
     Perform one training step
 
@@ -140,7 +155,14 @@ def train_step(model, optimizer, states, policy_targets, value_targets, device="
     return {"total_loss": total_loss.item(), "policy_loss": policy_loss.item(), "value_loss": value_loss.item()}
 
 
-def training_loop(model, train_data, epochs=10, batch_size=32, lr=0.001, device="cpu"):
+def training_loop(
+    model: AlphaZeroNet,
+    train_data: List[Tuple[torch.Tensor, torch.Tensor, torch.Tensor]],
+    epochs: int = 10,
+    batch_size: int = 32,
+    lr: float = 0.001,
+    device: Union[str, torch.device] = "cpu",
+) -> None:
     """
     Full training loop example
 
@@ -155,18 +177,16 @@ def training_loop(model, train_data, epochs=10, batch_size=32, lr=0.001, device=
     model = model.to(device)
 
     # Optimizer: Adam is commonly used for AlphaZero
-    optimizer = optim.Adam(model.parameters(), lr=lr, weight_decay=1e-4)
+    optimizer: optim.Adam = optim.Adam(model.parameters(), lr=lr, weight_decay=1e-4)
 
     # Learning rate scheduler (optional but recommended)
-    scheduler = optim.lr_scheduler.StepLR(optimizer, step_size=100, gamma=0.1)
+    scheduler: optim.lr_scheduler.StepLR = optim.lr_scheduler.StepLR(optimizer, step_size=100, gamma=0.1)
 
     for epoch in range(epochs):
-        epoch_losses = {"total": 0, "policy": 0, "value": 0}
-        num_batches = 0
+        epoch_losses: Dict[str, float] = {"total": 0.0, "policy": 0.0, "value": 0.0}
+        num_batches: int = 0
 
         # Shuffle data each epoch
-        import random
-
         random.shuffle(train_data)
 
         # Process in batches
@@ -174,12 +194,12 @@ def training_loop(model, train_data, epochs=10, batch_size=32, lr=0.001, device=
             batch = train_data[i : i + batch_size]
 
             # Unpack batch
-            states = torch.stack([item[0] for item in batch])
-            policy_targets = torch.stack([item[1] for item in batch])
-            value_targets = torch.stack([item[2] for item in batch])
+            states: torch.Tensor = torch.stack([item[0] for item in batch])
+            policy_targets: torch.Tensor = torch.stack([item[1] for item in batch])
+            value_targets: torch.Tensor = torch.stack([item[2] for item in batch])
 
             # Training step
-            losses = train_step(model, optimizer, states, policy_targets, value_targets, device)
+            losses: Dict[str, float] = train_step(model, optimizer, states, policy_targets, value_targets, device)
 
             # Accumulate losses
             epoch_losses["total"] += losses["total_loss"]
@@ -202,29 +222,29 @@ def training_loop(model, train_data, epochs=10, batch_size=32, lr=0.001, device=
 # Example usage
 if __name__ == "__main__":
     # Set device
-    device = "cuda" if torch.cuda.is_available() else "cpu"
+    device: str = "cuda" if torch.cuda.is_available() else "cpu"
     print(f"Using device: {device}")
 
     # Create model
-    model = AlphaZeroNet(num_res_blocks=10, num_channels=128, input_planes=119)
+    model: AlphaZeroNet = AlphaZeroNet(num_res_blocks=10, num_channels=128, input_planes=106)
     print(f"Total parameters: {sum(p.numel() for p in model.parameters()):,}")
 
     # Generate dummy training data
     # In real AlphaZero, this comes from self-play games + MCTS
-    num_samples = 1000
-    train_data = []
+    num_samples: int = 1000
+    train_data: List[Tuple[torch.Tensor, torch.Tensor, torch.Tensor]] = []
 
     for _ in range(num_samples):
         # Random board position
-        state = torch.randn(119, 8, 8)
+        state: torch.Tensor = torch.randn(106, 8, 8)
 
         # Random policy (would come from MCTS in real training)
         # Normalized to sum to 1
-        policy = torch.rand(4672)
+        policy: torch.Tensor = torch.rand(4672)
         policy = policy / policy.sum()
 
         # Random game outcome: -1 (loss), 0 (draw), or 1 (win)
-        value = torch.tensor([random.choice([-1.0, 0.0, 1.0])]).unsqueeze(0)
+        value: torch.Tensor = torch.tensor([random.choice([-1.0, 0.0, 1.0])]).unsqueeze(0)
 
         train_data.append((state, policy, value))
 
