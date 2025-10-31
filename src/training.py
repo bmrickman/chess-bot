@@ -5,10 +5,9 @@ from typing import Dict, List, Tuple
 
 import chess
 import torch
-import torch.nn.functional as F
 import torch.optim as optim
 
-from board_encoder import encode_board
+from board_encoding import encode_board
 from mcts import MCTS
 from nn import AlphaZeroNet, alphazero_loss
 from src.move_encoding import decode_move, encode_move
@@ -70,7 +69,7 @@ class SelfPlayGame:
             state = encode_board(board, history)
 
             # Run MCTS to get improved policy
-            mcts_policy = self.mcts.search(board, history)
+            mcts_policy, mcts_move = self.mcts.search(board, history)
 
             # Store example (outcome will be filled in later)
             examples.append({"state": state, "policy": mcts_policy, "player": 1 if board.turn == chess.WHITE else -1})

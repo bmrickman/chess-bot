@@ -5,10 +5,10 @@ import chess
 import torch
 import torch.nn.functional as F
 
-from board_encoder import encode_board
+from board_encoding import encode_board
 from nn import AlphaZeroNet
 from src.move_encoding import encode_move
-
+import chess
 
 class MCTSNode:
     """Node in the MCTS search tree"""
@@ -70,7 +70,7 @@ class MCTS:
 
         return policy_probs, value
 
-    def search(self, board: chess.Board, history: list[chess.Board]) -> torch.Tensor:
+    def search(self, board: chess.Board, history: list[chess.Board]) -> torch.Tensor, chess.Move:
         """
         Run MCTS and return improved policy
 
@@ -106,7 +106,7 @@ class MCTS:
                 move_idx = encode_move(move)
                 policy[move_idx] = child.visit_count / total_visits
 
-        return policy
+        return policy, move
 
     def _simulate(self, board: chess.Board, history: list[chess.Board], node: MCTSNode) -> float:
         """Run one MCTS simulation"""
@@ -171,7 +171,7 @@ def test_mcts():
 
     # Run MCTS - evaluation happens internally via self._evaluate()
     print("\nRunning MCTS search...")
-    policy = mcts.search(board, history)
+    policy, move = mcts.search(board, history)
 
     print(f"Policy shape: {policy.shape}")
     print(f"Policy sum: {policy.sum():.4f}")

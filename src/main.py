@@ -1,7 +1,7 @@
 import chess
 import torch
 
-from board_encoder import encode_board, get_canonical_board
+from board_encoding import encode_board
 from nn import AlphaZeroNet
 
 if __name__ == "__main__":

@@ -44,7 +44,7 @@ def encode_board(board: chess.Board, history: List[chess.Board]) -> torch.Tensor
     recent_history: List[chess.Board] = history[-7:] if len(history) > 7 else history
 
     for i, prev_board in enumerate(recent_history):
-        offset: int = 12 + i * 12
+        plane_offset: int = 12 + i * 12
 
         for square in chess.SQUARES:
             piece = prev_board.piece_at(square)
@@ -56,7 +56,7 @@ def encode_board(board: chess.Board, history: List[chess.Board]) -> torch.Tensor
                 if piece.color == chess.BLACK:
                     plane_idx += 6
 
-                planes[offset + plane_idx, rank, file] = 1.0
+                planes[plane_offset + plane_idx, rank, file] = 1.0
 
     # Planes 96-99: Castling rights (fill entire 8x8 plane with 0 or 1)
     planes[96, :, :] = 1.0 if board.has_kingside_castling_rights(chess.WHITE) else 0.0
@@ -92,24 +92,24 @@ def encode_board(board: chess.Board, history: List[chess.Board]) -> torch.Tensor
     return planes
 
 
-def get_canonical_board(board: chess.Board, history: List[chess.Board]) -> torch.Tensor:
-    """
-    Get board state from current player's perspective (flip if black to move)
+# def get_canonical_board(board: chess.Board, history: List[chess.Board]) -> torch.Tensor:
+#     """
+#     Get board state from current player's perspective (flip if black to move)
 
-    Args:
-        board: Current chess board position
-        history: List of previous board positions
+#     Args:
+#         board: Current chess board position
+#         history: List of previous board positions
 
-    Returns:
-        torch.Tensor of shape [106, 8, 8] encoded from current player's perspective
-    """
-    state: torch.Tensor = encode_board(board, history)
+#     Returns:
+#         torch.Tensor of shape [106, 8, 8] encoded from current player's perspective
+#     """
+#     state: torch.Tensor = encode_board(board, history)
 
-    # If black to move, flip the board vertically
-    if board.turn == chess.BLACK:
-        state = torch.flip(state, dims=[1])  # Flip along rank axis
+#     # If black to move, flip the board vertically
+#     if board.turn == chess.BLACK:
+#         state = torch.flip(state, dims=[1])  # Flip along rank axis
 
-    return state
+#     return state
 
 
 # Example usage
