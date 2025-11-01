@@ -7,7 +7,7 @@ from src.board_encoding import encode_board
 from src.mcts import create_root_node, extract_policy, sample_move, search
 
 
-def play_automated_game(
+def play_self_play_game(
     model: torch.nn.Module, num_simulations: int = 800, device: str = "cuda", max_moves: int = 200
 ) -> List[Tuple[torch.Tensor, torch.Tensor, torch.Tensor]]:
     """
@@ -81,6 +81,6 @@ if __name__ == "__main__":
     model = AlphaZeroNet(num_res_blocks=10, num_channels=128, input_planes=106).to(device)
 
     # Play a self-play game
-    training_data = play_automated_game(model, num_simulations=800, device=device)
+    training_data = play_self_play_game(model, num_simulations=800, device=device)
 
     print(f"Generated {len(training_data)} training examples from self-play game.")

@@ -18,57 +18,47 @@ import chess
 _encode: Dict[Tuple[int, int, Optional[int]], int] = {}
 _decode: Dict[int, Tuple[int, int, Optional[int]]] = {}
 
-# Define move patterns
-move_patterns = []
+index = 0
 
-# 1. Queen moves (56 types): 8 directions × 7 distances
-directions = [
-    (0, 1),  # North
-    (0, -1),  # South
-    (1, 0),  # East
-    (-1, 0),  # West
-    (1, 1),  # Northeast
-    (1, -1),  # Southeast
-    (-1, 1),  # Northwest
-    (-1, -1),  # Southwest
-]
+# Part 1: All (from, to) pairs for non-promotion moves
+# Indices 0-4095
+for from_square in range(64):
+    for to_square in range(64):
+        _encode[(from_square, to_square, None)] = index
+        _decode[index] = (from_square, to_square, None)
+        index += 1
 
-for direction in directions:
-    for distance in range(1, 8):
-        move_patterns.append((direction[0] * distance, direction[1] * distance, None))
+# Part 2: Promotion moves (from_square, to_square, piece)
+# Only valid for moves to rank 8 (squares 56-63) or rank 1 (squares 0-7)
+promotion_pieces = [chess.QUEEN, chess.ROOK, chess.BISHOP, chess.KNIGHT]
 
-# 2. Knight moves (8 types)
-knight_moves = [(2, 1), (2, -1), (-2, 1), (-2, -1), (1, 2), (1, -2), (-1, 2), (-1, -2)]
+# Promotions to rank 8 (White pawns)
+for from_square in range(48, 56):  # Rank 7 (squares 48-55)
+    for to_square in range(56, 64):  # Rank 8 (squares 56-63)
+        # Only encode if it's a valid pawn move (forward or diagonal capture)
+        from_file = from_square % 8
+        to_file = to_square % 8
 
-for knight_move in knight_moves:
-    move_patterns.append((knight_move[0], knight_move[1], None))
+        # Valid if: same file (forward) or adjacent file (capture)
+        if abs(from_file - to_file) <= 1:
+            for piece in promotion_pieces:
+                _encode[(from_square, to_square, piece)] = index
+                _decode[index] = (from_square, to_square, piece)
+                index += 1
 
-# 3. Promotions (12 types): 3 directions × 4 pieces
-promotion_directions = [(-1, 1), (0, 1), (1, 1)]  # Forward-left, Forward, Forward-right
-promotion_pieces = [chess.KNIGHT, chess.BISHOP, chess.ROOK, chess.QUEEN]
+# Promotions to rank 1 (Black pawns) - encoded from Black's perspective
+for from_square in range(8, 16):  # Rank 2 (squares 8-15)
+    for to_square in range(0, 8):  # Rank 1 (squares 0-7)
+        from_file = from_square % 8
+        to_file = to_square % 8
 
-for direction in promotion_directions:
-    for piece in promotion_pieces:
-        move_patterns.append((direction[0], direction[1], piece))
+        if abs(from_file - to_file) <= 1:
+            for piece in promotion_pieces:
+                _encode[(from_square, to_square, piece)] = index
+                _decode[index] = (from_square, to_square, piece)
+                index += 1
 
-# Build encoding: (from_square, to_square, promotion) -> policy_index
-for from_square in chess.SQUARES:
-    from_rank = chess.square_rank(from_square)
-    from_file = chess.square_file(from_square)
-
-    for move_pattern_idx, (file_delta, rank_delta, promotion) in enumerate(move_patterns):
-        to_file = from_file + file_delta
-        to_rank = from_rank + rank_delta
-
-        # Check if target square is valid
-        if 0 <= to_file < 8 and 0 <= to_rank < 8:
-            to_square = chess.square(to_file, to_rank)
-            policy_index = int(from_square) * 76 + move_pattern_idx
-
-            _encode[(from_square, to_square, promotion)] = policy_index
-
-# Reverse the encoding to get decoding
-_decode = {v: k for k, v in _encode.items()}
+print(f"Total move encodings: {index}")
 
 
 def encode_move(move: chess.Move) -> int:

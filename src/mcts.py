@@ -249,4 +249,4 @@ def sample_move(root: Node, temperature: float = 1.0) -> chess.Move:
 
     # Sample from tempered distribution
     move_idx = torch.multinomial(tempered, 1).item()
-    return moves[move_idx]
+    return moves[int(move_idx)]
