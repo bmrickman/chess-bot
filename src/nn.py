@@ -42,7 +42,7 @@ class AlphaZeroNet(nn.Module):
         # Policy head
         self.policy_conv = nn.Conv2d(num_channels, 32, kernel_size=1)
         self.policy_bn = nn.BatchNorm2d(32)
-        self.policy_fc = nn.Linear(32 * 8 * 8, 4672)
+        self.policy_fc = nn.Linear(32 * 8 * 8, 4864)
 
         # Value head
         self.value_conv = nn.Conv2d(num_channels, 32, kernel_size=1)
@@ -84,8 +84,8 @@ def alphazero_loss(
     Combined loss function for AlphaZero
 
     Args:
-        policy_logits: Raw policy outputs from network [batch_size, 4672]
-        policy_targets: Target policy from MCTS [batch_size, 4672]
+        policy_logits: Raw policy outputs from network [batch_size, 4864]
+        policy_targets: Target policy from MCTS [batch_size, 4864]
         value_preds: Predicted values from network [batch_size, 1]
         value_targets: Actual game outcomes [batch_size, 1]
         policy_weight: Weight for policy loss
@@ -123,7 +123,7 @@ def train_step(
         model: The AlphaZero neural network
         optimizer: PyTorch optimizer
         states: Board positions [batch_size, input_planes, 8, 8]
-        policy_targets: Target policies from MCTS [batch_size, 4672]
+        policy_targets: Target policies from MCTS [batch_size, 4864]
         value_targets: Game outcomes [batch_size, 1]
         device: 'cpu' or 'cuda'
 
@@ -240,7 +240,7 @@ if __name__ == "__main__":
 
         # Random policy (would come from MCTS in real training)
         # Normalized to sum to 1
-        policy: torch.Tensor = torch.rand(4672)
+        policy: torch.Tensor = torch.rand(4864)
         policy = policy / policy.sum()
 
         # Random game outcome: -1 (loss), 0 (draw), or 1 (win)
