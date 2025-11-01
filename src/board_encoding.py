@@ -142,5 +142,5 @@ if __name__ == "__main__":
     # Forward pass - no conversion needed!
     policy_logits, value = model(batch_state)
 
-    print(f"Policy shape: {policy_logits.shape}")  # [1, 4672]
+    print(f"Policy shape: {policy_logits.shape}")  # [1, 4864]
     print(f"Value shape: {value.shape}")  # [1, 1]

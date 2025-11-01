@@ -1,184 +1,252 @@
+"""
+Functional-style MCTS with efficient mutable nodes
+"""
+
 import math
-from typing import Tuple
+from dataclasses import dataclass, field
+from email import policy
+from typing import Dict, List, Optional, Tuple
 
 import chess
 import torch
 import torch.nn.functional as F
 
-from board_encoding import encode_board
-from nn import AlphaZeroNet
+from src.board_encoding import encode_board
 from src.move_encoding import encode_move
-import chess
 
-class MCTSNode:
-    """Node in the MCTS search tree"""
-
-    def __init__(self, prior_prob: float):
-        self.visit_count = 0
-        self.value_sum = 0.0
-        self.prior_prob = prior_prob
-        self.children: dict[chess.Move, "MCTSNode"] = {}
-
-    def value(self) -> float:
-        """Average value of this node"""
-        if self.visit_count == 0:
-            return 0.0
-        return self.value_sum / self.visit_count
-
-    def ucb_score(self, parent_visits: int, c_puct: float = 1.5) -> float:
-        """Upper confidence bound for tree search"""
-        q_value = self.value()
-        u_value = c_puct * self.prior_prob * math.sqrt(parent_visits) / (1 + self.visit_count)
-        return q_value + u_value
+# ============================================================================
+# Mutable Node (efficient!)
+# ============================================================================
 
 
-class MCTS:
-    """Monte Carlo Tree Search with neural network guidance"""
+@dataclass
+class Node:
+    """
+    Mutable node for efficiency
 
-    def __init__(self, model: AlphaZeroNet, num_simulations: int = 800, c_puct: float = 1.5, device: str = "cuda"):
-        self.model = model
-        self.num_simulations = num_simulations
-        self.c_puct = c_puct
-        self.device = device
-        self.model.to(device)
-        self.model.eval()
+    Still feels functional - you operate on nodes with functions,
+    but updates happen in-place for performance
+    """
 
-    def _evaluate(self, board: chess.Board, history: list[chess.Board]) -> Tuple[torch.Tensor, float]:
-        """
-        Evaluate position with neural network
+    board: chess.Board
+    history: List[chess.Board]
+    prior_prob: float
+    visit_count: int = 0
+    value_sum: float = 0.0
+    children: Dict[chess.Move, "Node"] = field(default_factory=dict)
 
-        Args:
-            board: Current position
-            history: Previous positions
+    def __repr__(self) -> str:
+        return f"Node(visits={self.visit_count}, value={get_value(self):.3f}, children={len(self.children)})"
 
-        Returns:
-            (policy_probs, value) - [4672] tensor and scalar
-        """
-        # Encode board
-        state = encode_board(board, history)  # [119, 8, 8]
 
-        # Add batch dimension and move to device
-        state_batch = state.unsqueeze(0).to(self.device)  # [1, 119, 8, 8]
+def create_root_node(board: chess.Board, history: List[chess.Board]) -> Node:
+    """Create root node"""
+    return Node(board=board.copy(), history=history.copy(), prior_prob=0.0)
 
-        # Get NN predictions
-        with torch.no_grad():
-            policy_logits, value_tensor = self.model(state_batch)
 
-        # Convert to probabilities and extract value
-        policy_probs = F.softmax(policy_logits, dim=1).squeeze(0)  # [4672]
-        value = value_tensor.item()  # Scalar float
+def create_child_node(parent: Node, move: chess.Move, prior_prob: float) -> Node:
+    """Create child node from parent"""
+    child_board = parent.board.copy()
+    child_board.push(move)
+    child_history = parent.history + [child_board.copy()]
 
-        return policy_probs, value
+    return Node(board=child_board, history=child_history, prior_prob=prior_prob)
 
-    def search(self, board: chess.Board, history: list[chess.Board]) -> torch.Tensor, chess.Move:
-        """
-        Run MCTS and return improved policy
 
-        Args:
-            board: Current position
-            history: Previous positions
+# ============================================================================
+# Node Operations (in-place updates!)
+# ============================================================================
 
-        Returns:
-            policy: [4672] tensor with move probabilities based on visit counts
-        """
-        # Get NN evaluation for root position
-        policy_probs, value = self._evaluate(board, history)
 
-        # Initialize root
-        root = MCTSNode(prior_prob=0.0)
+def get_value(node: Node) -> float:
+    if node.visit_count == 0:
+        return 0.0
+    return node.value_sum / node.visit_count
 
-        # Expand root with legal moves and prior probabilities based on NN
-        legal_moves = list(board.legal_moves)
-        for move in legal_moves:
-            move_idx = encode_move(move)
-            root.children[move] = MCTSNode(prior_prob=policy_probs[move_idx].item())
 
-        # Run simulations
-        for _ in range(self.num_simulations):
-            self._simulate(board.copy(), history.copy(), root)
+def update_node(node: Node, value: float) -> None:
+    node.visit_count += 1
+    node.value_sum += value
 
-        # Extract policy from visit counts
-        policy = torch.zeros(4672)
-        total_visits = sum(child.visit_count for child in root.children.values())
 
-        if total_visits > 0:
-            for move, child in root.children.items():
-                move_idx = encode_move(move)
-                policy[move_idx] = child.visit_count / total_visits
+def get_ucb_score(node: Node, parent_visits: int, c_puct: float = 1.5) -> float:
+    q_value = get_value(node)
+    u_value = c_puct * node.prior_prob * math.sqrt(parent_visits) / (1 + node.visit_count)
+    return q_value + u_value
 
-        return policy, move
 
-    def _simulate(self, board: chess.Board, history: list[chess.Board], node: MCTSNode) -> float:
-        """Run one MCTS simulation"""
+def select_best_child(node: Node, c_puct: float = 1.5) -> Tuple[chess.Move, Node]:
+    best_move = None
+    best_child = None
+    best_score = float("-inf")
 
-        # Check if game is over
-        if board.is_game_over():
-            result = board.result()
-            if result == "1-0":
-                return 1.0
-            elif result == "0-1":
-                return -1.0
-            else:
-                return 0.0
+    for move, child in node.children.items():
+        score = get_ucb_score(child, node.visit_count, c_puct)
+        if score > best_score:
+            best_score = score
+            best_move = move
+            best_child = child
+    assert best_move is not None and best_child is not None
+    return best_move, best_child
 
-        # If leaf node, expand with NN and return value
-        if not node.children:
-            # Evaluate with neural network
-            policy_probs, value = self._evaluate(board, history)
 
-            # Expand node with legal moves
-            legal_moves = list(board.legal_moves)
-            for move in legal_moves:
-                move_idx = encode_move(move)
-                node.children[move] = MCTSNode(prior_prob=policy_probs[move_idx].item())
+# ============================================================================
+# Neural Network Evaluation
+# ============================================================================
 
-            return value
 
-        # Select best child using UCB
-        best_move, best_child = max(
-            node.children.items(), key=lambda item: item[1].ucb_score(node.visit_count, self.c_puct)
-        )
+def evaluate_node(node: Node, model: torch.nn.Module, device: str) -> Tuple[torch.Tensor, float]:
+    """Evaluate node with neural network (pure function)"""
+    state = encode_board(node.board, node.history)
+    state_batch = state.unsqueeze(0).to(device)
 
-        # Make move and recurse
-        board.push(best_move)
-        history.append(board.copy())
+    with torch.no_grad():
+        policy_logits, value_tensor = model(state_batch)
 
-        value = -self._simulate(board, history, best_child)  # Negate for opponent
+    policy_probs = F.softmax(policy_logits, dim=1).squeeze(0)
+    value = value_tensor.item()
 
-        # Backpropagate
-        best_child.visit_count += 1
-        best_child.value_sum += value
+    return policy_probs, value
 
+
+# ============================================================================
+# Tree Operations
+# ============================================================================
+
+
+def expand_node(node: Node, policy_probs: torch.Tensor) -> None:
+    """
+    Expand node with children (mutates node.children!)
+
+    Creates child nodes and adds them to parent
+    """
+    for move in node.board.legal_moves:
+        move_idx = encode_move(move)
+        prior_prob = policy_probs[move_idx].item()
+
+        child = create_child_node(node, move, prior_prob)
+        node.children[move] = child
+
+
+def is_terminal(node: Node) -> bool:
+    """Check if node is terminal (pure function)"""
+    return node.board.is_game_over()
+
+
+def get_terminal_value(node: Node) -> float:
+    """Get value for terminal node (pure function)"""
+    result = node.board.result()
+    if result == "1-0":
+        return 1.0
+    elif result == "0-1":
+        return -1.0
+    else:
+        return 0.0
+
+
+# ============================================================================
+# MCTS Simulation
+# ============================================================================
+
+
+def simulate(node: Node, model: torch.nn.Module, device: str, c_puct: float) -> float:
+    # Terminal node
+    if is_terminal(node):
+        value = get_terminal_value(node)
+        update_node(node, value)  # Update in-place
         return value
 
+    # Leaf node - expand and evaluate
+    if not node.children:
+        policy_probs, value = evaluate_node(node, model, device)
+        expand_node(node, policy_probs)  # Mutates node.children
+        update_node(node, value)  # Update in-place
+        return value
 
-def test_mcts():
-    """Test MCTS with cleaner design"""
-    print("Testing MCTS with method-based evaluation...")
+    # Internal node - select and recurse
+    best_move, best_child = select_best_child(node, c_puct)
 
-    # Create model
-    model = AlphaZeroNet(num_res_blocks=5, num_channels=64)
-    device = "cpu"
+    # Recurse (child updates happen in the recursive call)
+    value = simulate(best_child, model, device, c_puct)
 
-    # Create MCTS
-    mcts = MCTS(model, num_simulations=50, device=device)
+    # Negate value for opponent
+    value = -value
 
-    # Test position
-    board = chess.Board()
-    board.push_san("e4")
-    board.push_san("e5")
-    history = [chess.Board()]
+    # Update this node in-place
+    update_node(node, value)
 
-    # Run MCTS - evaluation happens internally via self._evaluate()
-    print("\nRunning MCTS search...")
-    policy, move = mcts.search(board, history)
-
-    print(f"Policy shape: {policy.shape}")
-    print(f"Policy sum: {policy.sum():.4f}")
-    print(f"Non-zero moves: {(policy > 0).sum().item()}")
-
-    print("\n✓ MCTS working with cleaner design!")
+    return value
 
 
-if __name__ == "__main__":
-    test_mcts()
+# ============================================================================
+# MCTS Search
+# ============================================================================
+
+
+def search(
+    root: Node, model: torch.nn.Module, num_simulations: int = 800, c_puct: float = 1.5, device: str = "cuda"
+) -> None:
+    for _ in range(num_simulations):
+        simulate(root, model, device, c_puct)
+
+
+# ============================================================================
+# Information Extraction
+# ============================================================================
+
+
+def extract_policy(root: Node) -> torch.Tensor:
+    """Extract policy tensor for training"""
+    policy = torch.zeros(4864)
+    total_visits = sum(child.visit_count for child in root.children.values())
+
+    if total_visits > 0:
+        for move, child in root.children.items():
+            move_idx = encode_move(move)
+            policy[move_idx] = child.visit_count / total_visits
+
+    return policy
+
+
+def get_visit_counts(root: Node) -> Dict[chess.Move, int]:
+    """Get visit counts as dict"""
+    return {move: child.visit_count for move, child in root.children.items()}
+
+
+def sample_move(root: Node, temperature: float = 1.0) -> chess.Move:
+    """
+    Sample move from root with temperature
+
+    Args:
+        root: MCTS root node
+        temperature: Sampling temperature
+            - 0.0: Greedy (always pick best)
+            - 1.0: Proportional to visit counts
+            - >1.0: Flatten distribution (more exploration)
+            - <1.0: Sharpen distribution (prefer best)
+
+    Returns:
+        Selected chess move
+    """
+    if temperature == 0:
+        # Greedy: return move with highest visit count
+        return max(root.children.items(), key=lambda x: x[1].visit_count)[0]
+
+    # Get policy tensor [4864]
+    policy_tensor = extract_policy(root)
+
+    # Extract probabilities for legal moves (children)
+    moves = list(root.children.keys())
+    probs = []
+    for move in moves:
+        move_idx = encode_move(move)
+        probs.append(policy_tensor[move_idx].item())
+
+    # Apply temperature
+    probs_tensor = torch.tensor(probs)
+    tempered = probs_tensor ** (1 / temperature)
+    tempered = tempered / tempered.sum()
+
+    # Sample from tempered distribution
+    move_idx = torch.multinomial(tempered, 1).item()
+    return moves[move_idx]
