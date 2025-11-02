@@ -1,6 +1,8 @@
+import os
 from typing import List, Tuple
 
 import chess
+import psutil
 import torch
 from pympler import asizeof
 
@@ -9,10 +11,14 @@ from src.mcts import Node, extract_policy, sample_move, search
 
 
 def play_self_play_game(
-    model: torch.nn.Module, num_simulations: int = 800, device: str = "cuda", max_moves: int = 200
+    model: torch.nn.Module,
+    num_simulations: int = 800,
+    device: str = "cuda",
+    max_moves: int = 200,
+    re_use_tree: bool = True,
 ) -> List[Tuple[torch.Tensor, torch.Tensor, torch.Tensor]]:
     board = chess.Board()
-    history = [board.copy()]
+    history = []
     examples = []
     move_count = 0
 
@@ -28,19 +34,19 @@ def play_self_play_game(
         policy = extract_policy(root)
         examples.append({"state": state, "policy": policy, "player": "white" if board.turn == chess.WHITE else "black"})
 
-        # Sample moveF
+        # Sample move
         temperature = 1.0 if move_count < 30 else 0.1
         move = sample_move(root, temperature)
 
-        # Tree reuse - just move to child!
-        # 🔥 FIX: Explicitly break references before transition to allow for GC
-        new_root = root.children[move]
-        root.children.clear()
-        root = new_root
-
         # Make move
+        history = history[-6:] + [board.fen()]  # keep last 7 board states for 3 fold repetition detection
         board.push(move)
-        history.append(board.copy())
+
+        if re_use_tree:
+            root = root.children[move]
+        else:
+            root = Node(board=board.copy(), history=history.copy(), prior_prob=0.0)
+
         move_count += 1
         if move_count % 30 == 0:
             print("here")

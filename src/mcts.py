@@ -29,7 +29,7 @@ class Node:
     """
 
     board: chess.Board
-    history: List[chess.Board]
+    history: List[str]
     prior_prob: float
     visit_count: int = 0
     value_sum: float = 0.0
@@ -41,11 +41,11 @@ class Node:
 
 def create_child_node(parent: Node, move: chess.Move, prior_prob: float) -> Node:
     """Create child node from parent"""
+    child_history = parent.history[-6:] + [
+        parent.board.fen()
+    ]  # keep last 6 board states for 3 fold repetition detection
     child_board = parent.board.copy()
     child_board.push(move)
-    child_history = parent.history[-7:] + [
-        child_board.copy()
-    ]  # keep last 7 board states for 3 fold repetition detection
 
     return Node(board=child_board, history=child_history, prior_prob=prior_prob)
 

@@ -4,13 +4,13 @@ import chess
 import torch
 
 
-def encode_board(board: chess.Board, history: List[chess.Board]) -> torch.Tensor:
+def encode_board(board: chess.Board, history: List[str]) -> torch.Tensor:
     """
     Encode board to 106 planes as a PyTorch tensor
 
     Args:
         board: Current chess board position
-        history: Previous board positions (excluding current), including starting position
+        history: Previous board positions
 
     Returns:
         torch.Tensor of shape [106, 8, 8] with dtype float32
@@ -41,9 +41,10 @@ def encode_board(board: chess.Board, history: List[chess.Board]) -> torch.Tensor
             planes[plane_idx, rank, file] = 1.0
 
     # Planes 12-95: Previous 7 positions (84 planes = 7 × 12)
-    recent_history: List[chess.Board] = history[-7:] if len(history) > 7 else history
+    recent_history: List[str] = history[-7:] if len(history) > 7 else history
 
-    for i, prev_board in enumerate(recent_history):
+    for i, prev_fen in enumerate(recent_history):
+        prev_board = chess.Board(prev_fen)
         plane_offset: int = 12 + i * 12
 
         for square in chess.SQUARES:
@@ -65,7 +66,7 @@ def encode_board(board: chess.Board, history: List[chess.Board]) -> torch.Tensor
     planes[99, :, :] = 1.0 if board.has_queenside_castling_rights(chess.BLACK) else 0.0
 
     # Planes 100-101: Repetition counters
-    repetition_count: int = sum(1 for prev_board in history if prev_board.fen() == board.fen())
+    repetition_count: int = sum(1 for prev_fen in history if prev_fen == board.fen())
     if repetition_count == 0:
         planes[100, :, :] = 1.0
     elif repetition_count == 1:
@@ -110,37 +111,3 @@ def encode_board(board: chess.Board, history: List[chess.Board]) -> torch.Tensor
 #         state = torch.flip(state, dims=[1])  # Flip along rank axis
 
 #     return state
-
-
-# Example usage
-if __name__ == "__main__":
-    # Create a board and history
-    board: chess.Board = chess.Board()
-    history: List[chess.Board] = [board.copy()]  # Start with initial position
-
-    # Make some moves
-    board.push_san("e4")
-    history.append(board.copy())
-    board.push_san("e5")
-    history.append(board.copy())
-
-    # Encode to tensor (ready for neural network!)
-    state_tensor: torch.Tensor = encode_board(board, history)
-
-    print(f"Type: {type(state_tensor)}")  # <class 'torch.Tensor'>
-    print(f"Shape: {state_tensor.shape}")  # torch.Size([106, 8, 8])
-    print(f"Dtype: {state_tensor.dtype}")  # torch.float32
-
-    # Can directly use with model (just add batch dimension)
-    from nn import AlphaZeroNet
-
-    model = AlphaZeroNet()
-
-    # Add batch dimension
-    batch_state = state_tensor.unsqueeze(0)  # Shape: [1, 106, 8, 8]
-
-    # Forward pass - no conversion needed!
-    policy_logits, value = model(batch_state)
-
-    print(f"Policy shape: {policy_logits.shape}")  # [1, 4864]
-    print(f"Value shape: {value.shape}")  # [1, 1]
