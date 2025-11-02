@@ -19,7 +19,7 @@ from src.move_encoding import encode_move
 # ============================================================================
 
 
-@dataclass
+@dataclass(slots=True)
 class Node:
     """
     Mutable node for efficiency
@@ -39,16 +39,13 @@ class Node:
         return f"Node(visits={self.visit_count}, value={get_value(self):.3f}, children={len(self.children)})"
 
 
-def create_root_node(board: chess.Board, history: List[chess.Board]) -> Node:
-    """Create root node"""
-    return Node(board=board.copy(), history=history.copy(), prior_prob=0.0)
-
-
 def create_child_node(parent: Node, move: chess.Move, prior_prob: float) -> Node:
     """Create child node from parent"""
     child_board = parent.board.copy()
     child_board.push(move)
-    child_history = parent.history + [child_board.copy()]
+    child_history = parent.history[-7:] + [
+        child_board.copy()
+    ]  # keep last 7 board states for 3 fold repetition detection
 
     return Node(board=child_board, history=child_history, prior_prob=prior_prob)
 

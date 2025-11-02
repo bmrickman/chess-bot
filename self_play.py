@@ -2,26 +2,22 @@ from typing import List, Tuple
 
 import chess
 import torch
+from pympler import asizeof
 
 from src.board_encoding import encode_board
-from src.mcts import create_root_node, extract_policy, sample_move, search
+from src.mcts import Node, extract_policy, sample_move, search
 
 
 def play_self_play_game(
     model: torch.nn.Module, num_simulations: int = 800, device: str = "cuda", max_moves: int = 200
 ) -> List[Tuple[torch.Tensor, torch.Tensor, torch.Tensor]]:
-    """
-    Play one self-play game
-
-    Tree reuse is natural with your search() design!
-    """
     board = chess.Board()
     history = [board.copy()]
     examples = []
     move_count = 0
 
     # Start with fresh root
-    root = create_root_node(board, history)
+    root = Node(board=board.copy(), history=history.copy(), prior_prob=0.0)
 
     while not board.is_game_over() and move_count < max_moves:
         # Run MCTS
@@ -32,17 +28,22 @@ def play_self_play_game(
         policy = extract_policy(root)
         examples.append({"state": state, "policy": policy, "player": "white" if board.turn == chess.WHITE else "black"})
 
-        # Sample move
+        # Sample moveF
         temperature = 1.0 if move_count < 30 else 0.1
         move = sample_move(root, temperature)
 
         # Tree reuse - just move to child!
-        root = root.children[move]
+        # 🔥 FIX: Explicitly break references before transition to allow for GC
+        new_root = root.children[move]
+        root.children.clear()
+        root = new_root
 
         # Make move
         board.push(move)
         history.append(board.copy())
         move_count += 1
+        if move_count % 30 == 0:
+            print("here")
 
     # Create training examples
     return create_training_examples(examples, board)
@@ -68,6 +69,12 @@ def create_training_examples(
         training_examples.append((example["state"], example["policy"], value_tensor))
 
     return training_examples
+
+
+def count_nodes(node: Node) -> int:
+    if node.children is None or len(node.children) == 0:
+        return 1
+    return 1 + sum(count_nodes(child) for child in node.children.values())
 
 
 if __name__ == "__main__":
