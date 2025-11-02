@@ -1,3 +1,4 @@
+import multiprocessing as mp
 import os
 from typing import List, Tuple
 
@@ -11,9 +12,10 @@ from src.mcts import Node, extract_policy, sample_move, search
 
 
 def play_self_play_game(
-    model: torch.nn.Module,
+    inference_inference_request_queue: mp.Queue,
+    inference_inference_response_queue: mp.Queue,
+    inference_response_queue: mp.Queue,
     num_simulations: int = 800,
-    device: str = "cuda",
     max_moves: int = 200,
     re_use_tree: bool = True,
 ) -> List[Tuple[torch.Tensor, torch.Tensor, torch.Tensor]]:
@@ -27,7 +29,7 @@ def play_self_play_game(
 
     while not board.is_game_over() and move_count < max_moves:
         # Run MCTS
-        search(root, model, num_simulations, device=device)
+        search(root, inference_inference_request_queue, inference_inference_response_queue, num_simulations)
 
         # Store example
         state = encode_board(board, history)
@@ -81,19 +83,3 @@ def count_nodes(node: Node) -> int:
     if node.children is None or len(node.children) == 0:
         return 1
     return 1 + sum(count_nodes(child) for child in node.children.values())
-
-
-if __name__ == "__main__":
-    # Example usage
-    device = "cuda" if torch.cuda.is_available() else "cpu"
-    print(f"Using device: {device}")
-
-    # Load or create model
-    from src.nn import AlphaZeroNet
-
-    model = AlphaZeroNet(num_res_blocks=10, num_channels=128, input_planes=106).to(device)
-
-    # Play a self-play game
-    training_data = play_self_play_game(model, num_simulations=800, device=device)
-
-    print(f"Generated {len(training_data)} training examples from self-play game.")

@@ -3,6 +3,7 @@ Functional-style MCTS with efficient mutable nodes
 """
 
 import math
+import multiprocessing as mp
 from dataclasses import dataclass, field
 from email import policy
 from typing import Dict, List, Optional, Tuple
@@ -92,16 +93,16 @@ def select_best_child(node: Node, c_puct: float = 1.5) -> Tuple[chess.Move, Node
 # ============================================================================
 
 
-def evaluate_node(node: Node, model: torch.nn.Module, device: str) -> Tuple[torch.Tensor, float]:
+def evaluate_node(
+    node: Node, inference_request_queue: mp.Queue, inference_response_queue: mp.Queue
+) -> Tuple[torch.Tensor, float]:
     """Evaluate node with neural network (pure function)"""
     state = encode_board(node.board, node.history)
-    state_batch = state.unsqueeze(0).to(device)
+    inference_request_queue.put(state)
 
-    with torch.no_grad():
-        policy_logits, value_tensor = model(state_batch)
-
-    policy_probs = F.softmax(policy_logits, dim=1).squeeze(0)
-    value = value_tensor.item()
+    inference_response = inference_response_queue.get()
+    policy_probs = inference_response["policy"]
+    value = inference_response["value"]
 
     return policy_probs, value
 
@@ -146,7 +147,7 @@ def get_terminal_value(node: Node) -> float:
 # ============================================================================
 
 
-def simulate(node: Node, model: torch.nn.Module, device: str, c_puct: float) -> float:
+def simulate(node: Node, inference_request_queue: mp.Queue, inference_response_queue: mp.Queue, c_puct: float) -> float:
     # Terminal node
     if is_terminal(node):
         value = get_terminal_value(node)
@@ -155,7 +156,7 @@ def simulate(node: Node, model: torch.nn.Module, device: str, c_puct: float) -> 
 
     # Leaf node - expand and evaluate
     if not node.children:
-        policy_probs, value = evaluate_node(node, model, device)
+        policy_probs, value = evaluate_node(node, inference_request_queue, inference_response_queue)
         expand_node(node, policy_probs)  # Mutates node.children
         update_node(node, value)  # Update in-place
         return value
@@ -164,7 +165,7 @@ def simulate(node: Node, model: torch.nn.Module, device: str, c_puct: float) -> 
     best_move, best_child = select_best_child(node, c_puct)
 
     # Recurse (child updates happen in the recursive call)
-    value = simulate(best_child, model, device, c_puct)
+    value = simulate(best_child, inference_request_queue, inference_response_queue, c_puct)
 
     # Negate value for opponent
     value = -value
@@ -181,10 +182,14 @@ def simulate(node: Node, model: torch.nn.Module, device: str, c_puct: float) -> 
 
 
 def search(
-    root: Node, model: torch.nn.Module, num_simulations: int = 800, c_puct: float = 1.5, device: str = "cuda"
+    root: Node,
+    inference_inference_request_queue: mp.Queue,
+    inference_inference_response_queue: mp.Queue,
+    num_simulations: int = 800,
+    c_puct: float = 1.5,
 ) -> None:
     for _ in range(num_simulations):
-        simulate(root, model, device, c_puct)
+        simulate(root, inference_inference_request_queue, inference_inference_response_queue, c_puct)
 
 
 # ============================================================================
