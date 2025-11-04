@@ -14,7 +14,7 @@ How to refactor this code?
 9. Figure out how to give more resources to WSL
 10. Double check the handoff between the inference server and evaluate_node
 11. Understand how to read the stack trace when working with multiprocessing
-
+12.  Add early sanity checks (see claude) to make sure that things are actually progressing.
 
 
 
