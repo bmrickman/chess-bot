@@ -1,3 +1,4 @@
+import time
 from multiprocessing import Manager, Process, Queue, set_start_method
 from threading import Thread
 from typing import List
@@ -10,32 +11,30 @@ set_start_method("spawn", force=True)  # safer for nested threads
 
 
 def main(num_processes: int = 2, threads_per_process: int = 3):
-    manager = Manager()
+    with Manager() as manager:
+        all_queues = manager.dict(
+            {
+                (process_num, thread_num): (manager.Queue(), manager.Queue(), manager.Queue())
+                for process_num in range(num_processes)
+                for thread_num in range(threads_per_process)
+            }
+        )
+        processes: List[Process] = []
+        for process_num in range(num_processes):
+            process_queues = {k: v for k, v in all_queues.items() if k[0] == process_num}
+            p = Process(target=process_worker, kwargs={"queues": process_queues}, name=f"Process-{process_num}")
+            p.start()
+            processes.append(p)
 
-    all_queues = manager.dict(
-        {
-            (process_num, thread_num): (manager.Queue(), manager.Queue(), manager.Queue())
-            for process_num in range(num_processes)
-            for thread_num in range(threads_per_process)
-        }
-    )
+        server_proc = Process(
+            target=run_inference_server, kwargs={"queues": all_queues, "model": AlphaZeroNet()}, name="InferenceServer"
+        )
+        server_proc.start()
 
-    processes: List[Process] = []
-    for process_num in range(num_processes):
-        process_queues = manager.dict({k: v for k, v in all_queues.items() if k[0] == process_num})
-        p = Process(target=process_worker, kwargs={"queues": process_queues}, name=f"Process-{process_num}")
-        p.start()
-        processes.append(p)
+        for p in processes:
+            p.join()
 
-    server_proc = Process(
-        target=run_inference_server, kwargs={"queues": all_queues, "model": AlphaZeroNet()}, name="InferenceServer"
-    )
-    server_proc.start()
-
-    for p in processes:
-        p.join()
-
-    server_proc.terminate()
+        server_proc.terminate()
 
 
 def process_worker(queues: dict[tuple[int, int], tuple[Queue, Queue, Queue]]):
@@ -67,4 +66,4 @@ def process_worker(queues: dict[tuple[int, int], tuple[Queue, Queue, Queue]]):
 
 
 if __name__ == "__main__":
-    main(num_processes=1, threads_per_process=1)
+    main(num_processes=2, threads_per_process=2)
