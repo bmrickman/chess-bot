@@ -21,9 +21,8 @@ Todo:
 12.  Add early sanity checks (see claude) to make sure that things are actually progressing.
 13. Wrap self play + train in loop so that it can run continuously during the day
 14. Set up log storage and DB storage for workers
-15. Improve the Queue process for efficiency
-
-
+15. Consider making more than a single MCTS inference request per thread (to cut down on context switch time)
+16. Consider using streams to communicate with GPU?  Probably not necessary, or even harmful
 
 
 Currently:
