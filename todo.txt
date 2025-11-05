@@ -14,7 +14,14 @@ Todo:
 6. Improve memory efficiency of simulation environments
 7. Add logging to know what is happening
 
-
+8. Figure out how to performance monitor
+9. Figure out how to give more resources to WSL
+10. Double check the handoff between the inference server and evaluate_node
+11. Understand how to read the stack trace when working with multiprocessing
+12.  Add early sanity checks (see claude) to make sure that things are actually progressing.
+13. Wrap self play + train in loop so that it can run continuously during the day
+14. Set up log storage and DB storage for workers
+15. Improve the Queue process for efficiency
 
 
 
