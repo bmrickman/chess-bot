@@ -12,9 +12,9 @@ from src.mcts import Node, extract_policy, sample_move, search
 
 
 def play_self_play_game(
-    inference_inference_request_queue: mp.Queue,
-    inference_inference_response_queue: mp.Queue,
+    inference_request_queue: mp.Queue,
     inference_response_queue: mp.Queue,
+    result_queue: mp.Queue,
     num_simulations: int = 800,
     max_moves: int = 200,
     re_use_tree: bool = True,
@@ -29,7 +29,7 @@ def play_self_play_game(
 
     while not board.is_game_over() and move_count < max_moves:
         # Run MCTS
-        search(root, inference_inference_request_queue, inference_inference_response_queue, num_simulations)
+        search(root, inference_request_queue, inference_response_queue, num_simulations)
 
         # Store example
         state = encode_board(board, history)

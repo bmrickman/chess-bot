@@ -2,18 +2,18 @@
 
 
 Todo:
-How to refactor this code?
+11. Understand how to read the stack trace when working with multiprocessing
+8. Add memory usage monitoring
 1. Go through and rename anything that makes the initial code easier to read (perhaps encoders should be _move_index_to_move and move_to_move_index
-2. Write test suite
-3. float params to top
-4. Get more RAM
+
+
+
+2. Write test suite 
+4. Get more RAM - 192 48 X 4
 5. BIOS update
 6. Improve memory efficiency of simulation environments
 7. Add logging to know what is happening
-8. Figure out how to performance monitor
-9. Figure out how to give more resources to WSL
-10. Double check the handoff between the inference server and evaluate_node
-11. Understand how to read the stack trace when working with multiprocessing
+
 
 
 

@@ -20,9 +20,13 @@ def main(num_processes: int = 2, threads_per_process: int = 3):
             }
         )
         processes: List[Process] = []
-        for process_num in range(num_processes):
-            process_queues = {k: v for k, v in all_queues.items() if k[0] == process_num}
-            p = Process(target=process_worker, kwargs={"queues": process_queues}, name=f"Process-{process_num}")
+        for process_id in range(num_processes):
+            process_queues = {k: v for k, v in all_queues.items() if k[0] == process_id}
+            p = Process(
+                target=process_worker,
+                kwargs={"queues": process_queues, "process_id": process_id},
+                name=f"Process-{process_id}",
+            )
             p.start()
             processes.append(p)
 
@@ -37,26 +41,22 @@ def main(num_processes: int = 2, threads_per_process: int = 3):
         server_proc.terminate()
 
 
-def process_worker(queues: dict[tuple[int, int], tuple[Queue, Queue, Queue]]):
+def process_worker(queues: dict[tuple[int, int], tuple[Queue, Queue, Queue]], process_id: int):
     threads: List[Thread] = []
 
-    for index, (
-        inference_inference_request_queue,
-        inference_inference_response_queue,
-        inference_response_queue,
-    ) in queues.items():
+    for (process_id, worker_id), (inference_request_queue, inference_response_queue, result_queue) in queues.items():
         th = Thread(
             target=play_self_play_game,
             kwargs={
-                "inference_inference_request_queue": inference_inference_request_queue,
-                "inference_inference_response_queue": inference_inference_response_queue,
+                "inference_request_queue": inference_request_queue,
                 "inference_response_queue": inference_response_queue,
+                "result_queue": result_queue,
                 "num_simulations": 800,
                 "max_moves": 200,
                 "re_use_tree": True,
             },
             daemon=True,
-            name=f"SelfPlay-{index[0]}-{index[1]}",
+            name=f"SelfPlay-{process_id}-{worker_id}",
         )
         th.start()
         threads.append(th)
@@ -66,4 +66,4 @@ def process_worker(queues: dict[tuple[int, int], tuple[Queue, Queue, Queue]]):
 
 
 if __name__ == "__main__":
-    main(num_processes=2, threads_per_process=2)
+    main(num_processes=2, threads_per_process=1)

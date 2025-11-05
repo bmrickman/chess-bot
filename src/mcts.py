@@ -184,12 +184,12 @@ def simulate(node: Node, inference_request_queue: mp.Queue, inference_response_q
 def search(
     root: Node,
     inference_inference_request_queue: mp.Queue,
-    inference_inference_response_queue: mp.Queue,
+    inference_response_queue: mp.Queue,
     num_simulations: int = 800,
     c_puct: float = 1.5,
 ) -> None:
     for _ in range(num_simulations):
-        simulate(root, inference_inference_request_queue, inference_inference_response_queue, c_puct)
+        simulate(root, inference_inference_request_queue, inference_response_queue, c_puct)
 
 
 # ============================================================================
