@@ -70,7 +70,4 @@ def run_inference_server(queues: dict[tuple[int, int], tuple[mp.Queue, mp.Queue,
         # Route responses back to correct threads
         for (process_id, thread_id), policy, value in zip(batch_queue_ids, policies, values):
             response_queue = queues[(process_id, thread_id)][1]
-            try:
-                response_queue.put({"policy": policy, "value": value.item()})
-            except Exception as e:
-                print("here")
+            response_queue.put({"policy": policy, "value": value.item()})
