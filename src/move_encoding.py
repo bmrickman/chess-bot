@@ -58,8 +58,6 @@ for from_square in range(8, 16):  # Rank 2 (squares 8-15)
                 _decode[index] = (from_square, to_square, piece)
                 index += 1
 
-print(f"Total move encodings: {index}")
-
 
 def encode_move(move: chess.Move) -> int:
     key = (move.from_square, move.to_square, move.promotion)

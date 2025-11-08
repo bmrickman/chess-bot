@@ -4,7 +4,7 @@ import chess
 import torch
 
 
-def encode_board(board: chess.Board, history: List[str]) -> torch.Tensor:
+def encode_board(board: chess.Board, history: List[chess.Board]) -> torch.Tensor:
     """
     Encode board to 106 planes as a PyTorch tensor
 
@@ -41,10 +41,9 @@ def encode_board(board: chess.Board, history: List[str]) -> torch.Tensor:
             planes[plane_idx, rank, file] = 1.0
 
     # Planes 12-95: Previous 7 positions (84 planes = 7 × 12)
-    recent_history: List[str] = history[-7:] if len(history) > 7 else history
+    recent_history: List[chess.Board] = history[-7:] if len(history) > 7 else history
 
-    for i, prev_fen in enumerate(recent_history):
-        prev_board = chess.Board(prev_fen)
+    for i, prev_board in enumerate(recent_history):
         plane_offset: int = 12 + i * 12
 
         for square in chess.SQUARES:
@@ -66,7 +65,7 @@ def encode_board(board: chess.Board, history: List[str]) -> torch.Tensor:
     planes[99, :, :] = 1.0 if board.has_queenside_castling_rights(chess.BLACK) else 0.0
 
     # Planes 100-101: Repetition counters
-    repetition_count: int = sum(1 for prev_fen in history if prev_fen == board.fen())
+    repetition_count: int = sum(1 for prev_board in history if prev_board.fen() == board.fen())
     if repetition_count == 0:
         planes[100, :, :] = 1.0
     elif repetition_count == 1:

@@ -5,8 +5,7 @@ Functional-style MCTS with efficient mutable nodes
 import math
 import multiprocessing as mp
 from dataclasses import dataclass, field
-from email import policy
-from typing import Dict, List, Optional, Tuple
+from typing import Dict, List, Tuple
 
 import chess
 import torch
@@ -30,7 +29,7 @@ class Node:
     """
 
     board: chess.Board
-    history: List[str]
+    history: List[chess.Board]
     prior_prob: float
     visit_count: int = 0
     value_sum: float = 0.0
@@ -42,10 +41,8 @@ class Node:
 
 def create_child_node(parent: Node, move: chess.Move, prior_prob: float) -> Node:
     """Create child node from parent"""
-    child_history = parent.history[-6:] + [
-        parent.board.fen()
-    ]  # keep last 6 board states for 3 fold repetition detection
-    child_board = parent.board.copy()
+    child_history = parent.history[-6:] + [parent.board]  # keep last 6 board states for 3 fold repetition detection
+    child_board = parent.board.copy(stack=False)
     child_board.push(move)
 
     return Node(board=child_board, history=child_history, prior_prob=prior_prob)
@@ -113,11 +110,6 @@ def evaluate_node(
 
 
 def expand_node(node: Node, policy_probs: torch.Tensor) -> None:
-    """
-    Expand node with children (mutates node.children!)
-
-    Creates child nodes and adds them to parent
-    """
     for move in node.board.legal_moves:
         move_idx = encode_move(move)
         prior_prob = policy_probs[move_idx].item()
@@ -127,12 +119,10 @@ def expand_node(node: Node, policy_probs: torch.Tensor) -> None:
 
 
 def is_terminal(node: Node) -> bool:
-    """Check if node is terminal (pure function)"""
     return node.board.is_game_over()
 
 
 def get_terminal_value(node: Node) -> float:
-    """Get value for terminal node (pure function)"""
     result = node.board.result()
     if result == "1-0":
         return 1.0
@@ -215,7 +205,7 @@ def get_visit_counts(root: Node) -> Dict[chess.Move, int]:
     return {move: child.visit_count for move, child in root.children.items()}
 
 
-def sample_move(root: Node, temperature: float = 1.0) -> chess.Move:
+def sample_move(root: Node, temperature: float = 1.0, extract_policy=extract_policy) -> chess.Move:
     """
     Sample move from root with temperature
 

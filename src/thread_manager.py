@@ -53,7 +53,7 @@ def process_worker(queues: dict[tuple[int, int], tuple[Queue, Queue, Queue]], pr
                 "result_queue": result_queue,
                 "num_simulations": 800,
                 "max_moves": 200,
-                "re_use_tree": True,
+                "re_use_tree": False,
             },
             daemon=True,
             name=f"SelfPlay-{process_id}-{worker_id}",
@@ -66,4 +66,4 @@ def process_worker(queues: dict[tuple[int, int], tuple[Queue, Queue, Queue]], pr
 
 
 if __name__ == "__main__":
-    main(num_processes=2, threads_per_process=1)
+    main(num_processes=8, threads_per_process=10)

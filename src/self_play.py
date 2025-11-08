@@ -1,14 +1,11 @@
 import multiprocessing as mp
-import os
-from typing import List, Tuple
+from typing import List, Optional, Tuple
 
 import chess
-import psutil
 import torch
-from pympler import asizeof
 
 from src.board_encoding import encode_board
-from src.mcts import Node, extract_policy, sample_move, search
+from src.mcts import Node, create_child_node, extract_policy, sample_move, search
 
 
 def play_self_play_game(
@@ -19,42 +16,39 @@ def play_self_play_game(
     max_moves: int = 200,
     re_use_tree: bool = True,
 ) -> List[Tuple[torch.Tensor, torch.Tensor, torch.Tensor]]:
-    board = chess.Board()
-    history = []
+    board: Optional[chess.Board] = chess.Board()
+    history: Optional[list[chess.Board]] = []
     examples = []
     move_count = 0
 
     # Start with fresh root
-    root = Node(board=board.copy(), history=history.copy(), prior_prob=0.0)
+    root = Node(board=board, history=history, prior_prob=0.0)
 
-    while not board.is_game_over() and move_count < max_moves:
+    while not root.board.is_game_over() and move_count < max_moves:
         # Run MCTS
         search(root, inference_request_queue, inference_response_queue, num_simulations)
 
         # Store example
-        state = encode_board(board, history)
+        state = encode_board(root.board, root.history)
         policy = extract_policy(root)
-        examples.append({"state": state, "policy": policy, "player": "white" if board.turn == chess.WHITE else "black"})
+        examples.append(
+            {"state": state, "policy": policy, "player": "white" if root.board.turn == chess.WHITE else "black"}
+        )
 
         # Sample move
         temperature = 1.0 if move_count < 30 else 0.1
         move = sample_move(root, temperature)
 
         # Make move
-        history = history[-6:] + [board.fen()]  # keep last 7 board states for 3 fold repetition detection
-        board.push(move)
-
         if re_use_tree:
             root = root.children[move]
         else:
-            root = Node(board=board.copy(), history=history.copy(), prior_prob=0.0)
+            root = create_child_node(root, move, prior_prob=0.0)
 
         move_count += 1
-        if move_count % 30 == 0:
-            print("here")
 
     # Create training examples
-    return create_training_examples(examples, board)
+    return create_training_examples(examples, root.board)
 
 
 def create_training_examples(
