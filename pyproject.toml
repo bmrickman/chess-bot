@@ -45,3 +45,6 @@ select = [
     "Q",  # Error-prone constructs
     "F"   # imported but unused 
 ]
+ignore = [
+    "N812",  # line too long
+]

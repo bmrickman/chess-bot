@@ -23,7 +23,7 @@ Todo:
 14. Set up log storage and DB storage for workers
 15. Consider making more than a single MCTS inference request per thread (to cut down on context switch time)
 16. Consider using streams to communicate with GPU?  Probably not necessary, or even harmful
-
+17. Implement Dirichlet noise
 
 Currently:
 History eats up 440 bytes
