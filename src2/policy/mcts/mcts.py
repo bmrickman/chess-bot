@@ -1,26 +1,26 @@
 import math
 from abc import ABC, abstractmethod
-from dataclasses import dataclass
-from typing import Callable, Type
+from dataclasses import dataclass, field
+from typing import Callable, Generic, Type
 
 from src2.types import Action, State
 
-# You implement a Node to get an MCTS
 
-
-class Node[State, Action](ABC):
+@dataclass
+class MCTSNode(Generic[State, Action], ABC):
     state: State
-    total_value: float = 0.0
-    nvisits: int = 0
-    children: dict[Action, State] = {}
     prior_prob: float = 0.0
 
-    def update(self, value: float):
+    total_value: float = 0.0
+    nvisits: int = 0
+    children: dict[Action, "MCTSNode[State, Action]"] = field(default_factory=dict)
+
+    def update(self, value: float) -> None:
         self.total_value += value
         self.nvisits += 1
 
     @abstractmethod
-    def apply_move(self, move: Action) -> "Node[State, Action]": ...
+    def apply_move(self, move: Action) -> "MCTSNode[State, Action]": ...
 
     @abstractmethod
     def is_terminal(self) -> bool: ...
@@ -33,47 +33,47 @@ class Node[State, Action](ABC):
 
 
 @dataclass
-class MCTS[Action, State]:
-    evaluate: Callable[[Node], tuple[dict[Action, float], float]]
-    node_type: Type[Node[State, Action]]
+class MCTS(Generic[Action, State]):
+    evaluate: Callable[[MCTSNode[State, Action]], tuple[dict[Action, float], float]]
+    node_type: Type[MCTSNode[State, Action]]
     c_puct: float
     sims_per_move: int
 
+    def _ucb_score(self, child: MCTSNode, parent: MCTSNode) -> float:
+        q = child.total_value / (child.nvisits or 1)
+        u = self.c_puct * child.prior_prob * (math.sqrt(parent.nvisits) / (1 + child.nvisits))
+        return q + u
+
     # simulation interface
-    def _select_best_move_and_child(self, node: Node) -> tuple[Action, Node]:
-        total_visits = sum(child.nvisits for child in node.children.values())
+    def _select_best_move_and_child(self, node: MCTSNode) -> tuple[Action, MCTSNode]:
+        return max(node.children.items(), key=lambda mc: self._ucb_score(mc[1], node))
 
-        def ucb_score(move: Action, child: Node):
-            q = child.total_value / (child.nvisits or 1)
-            u = self.c_puct * child.prior_prob * (math.sqrt(total_visits) / (1 + child.nvisits))
-            return q + u
-
-        return max(node.children.items(), key=lambda mc: ucb_score(*mc))
-
-    def _simulate(self, node: Node) -> float:
-        # Terminal node
+    def _simulate(self, node: MCTSNode) -> None:
+        path = [node]
+        # walk down to leaf node
+        while node.children:
+            _, node = self._select_best_move_and_child(node)
+            path.append(node)
+        # evaluate leaf
         if node.is_terminal():
             value = node.terminal_value()
-            node.update(value)  # Update in-place
-            return value
-
-        # Leaf node - expand and evaluate
-        elif not node.children:
-            policy_probs, value = self.evaluate(node)
-            node.update(value)
-            for move in node.legal_moves():
-                node.children[move] = self.node_type(state=node.apply_move(move), prior_prob=policy_probs[move])
-            return value
-        # recursion
         else:
-            _, best_child = self._select_best_move_and_child(node)
-            value = self._simulate(best_child)
+            policy, value = self.evaluate(node)
+            for move in node.legal_moves():
+                node.children[move] = self.node_type(state=node.apply_move(move).state, prior_prob=policy[move])
+        # Backpropagation
+        for n in reversed(path):
+            n.update(value)
             value = -value
-            node.update(value)
-            return value
 
-    # gameplay interface
-    def choose_move(self, node: Node):
-        for i in range(self.sims_per_move):
-            self._simulate(node)
-        return self._select_best_move_and_child(node)
+    def print_tree(
+        self, node: MCTSNode[State, Action], parent_node: MCTSNode[State, Action] | None = None, depth: int = 0
+    ):
+        indent = "    " * depth
+        print(
+            f"{indent}- s:{node.state}, vis:{node.nvisits}, val: {node.total_value}, pp:{node.prior_prob}, ucb: {self._ucb_score(node, parent_node) if parent_node else 'N/A'}"
+        )
+
+        for action, child in node.children.items():
+            print(f"{indent}  Action: {action}")
+            self.print_tree(child, node, depth + 1)
