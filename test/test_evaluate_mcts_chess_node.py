@@ -2,7 +2,6 @@ from math import exp
 
 import chess
 import torch
-import torch.nn.functional as F
 
 from src2.model.chess_resnet.board_encoding import encode_board
 from src2.model.chess_resnet.evaluate_chess_board_and_history import evaluate_boards_and_histories
