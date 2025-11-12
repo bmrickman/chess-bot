@@ -9,7 +9,7 @@ from src2.types import Action, State
 @dataclass
 class MCTSNode(Generic[State, Action], ABC):
     state: State
-    prior_prob: float = 0.0
+    prior_prob: float
 
     total_value: float = 0.0
     nvisits: int = 0
@@ -34,7 +34,7 @@ class MCTSNode(Generic[State, Action], ABC):
 
 @dataclass
 class MCTS(Generic[Action, State]):
-    evaluate: Callable[[MCTSNode[State, Action]], tuple[dict[Action, float], float]]
+    evaluate: Callable[[State], tuple[dict[Action, float], float]]
     node_type: Type[MCTSNode[State, Action]]
     c_puct: float
     sims_per_move: int
@@ -45,20 +45,20 @@ class MCTS(Generic[Action, State]):
         return q + u
 
     # simulation interface
-    def _select_best_move_and_child(self, node: MCTSNode) -> tuple[Action, MCTSNode]:
+    def select_best_move_and_child(self, node: MCTSNode) -> tuple[Action, MCTSNode]:
         return max(node.children.items(), key=lambda mc: self._ucb_score(mc[1], node))
 
-    def _simulate(self, node: MCTSNode) -> None:
+    def simulate(self, node: MCTSNode) -> None:
         path = [node]
         # walk down to leaf node
         while node.children:
-            _, node = self._select_best_move_and_child(node)
+            _, node = self.select_best_move_and_child(node)
             path.append(node)
         # evaluate leaf
         if node.is_terminal():
             value = node.terminal_value()
         else:
-            policy, value = self.evaluate(node)
+            policy, value = self.evaluate(node.state)
             for move in node.legal_moves():
                 node.children[move] = self.node_type(state=node.apply_move(move).state, prior_prob=policy[move])
         # Backpropagation

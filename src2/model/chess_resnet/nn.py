@@ -70,6 +70,8 @@ class AlphaZeroNet(nn.Module):
         return policy, value
 
 
-model = AlphaZeroNet()
-model.to("cuda")
-model.eval()
+def get_model(device: torch.device) -> AlphaZeroNet:
+    model = AlphaZeroNet()
+    model.to(device)
+    model.eval()
+    return model

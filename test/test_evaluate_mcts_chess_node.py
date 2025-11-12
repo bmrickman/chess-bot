@@ -4,9 +4,9 @@ import chess
 import torch
 import torch.nn.functional as F
 
-from src2.model.board_encoding import encode_board
-from src2.model.evaluate import evaluate_boards
-from src2.model.move_translation import encode_move
+from src2.model.chess_resnet.board_encoding import encode_board
+from src2.model.chess_resnet.evaluate_chess_board_and_history import evaluate_boards_and_histories
+from src2.model.chess_resnet.move_translation import encode_move
 
 
 class testBoard(chess.Board):
@@ -32,7 +32,7 @@ def dummy_model(cuda_board_states: torch.Tensor) -> tuple[torch.Tensor, torch.Te
 
 
 def test_evaluate():
-    evaluations = list(evaluate_boards([(board, board_history)], dummy_model))
+    evaluations = list(evaluate_boards_and_histories([(board, board_history)], dummy_model))
     assert len(evaluations) == 1
     evaluation = evaluations[0]
     state_value = evaluation[0]

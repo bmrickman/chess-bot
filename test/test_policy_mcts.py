@@ -22,12 +22,12 @@ def test_mcts():
         def legal_moves(self) -> list[str]:
             return ["L", "R"]
 
-    def evaluate_state(node: MCTSNode[str, str]) -> tuple[dict[str, float], float]:
-        value = node.state.count("R") - node.state.count("L")
+    def evaluate_state(state: str) -> tuple[dict[str, float], float]:
+        value = state.count("R") - state.count("L")
         policy = {"L": -1.0, "R": 1.0}
         return policy, float(value)
 
-    mcts = MCTS(evaluate=evaluate_state, node_type=TestNode, c_puct=1, sims_per_move=1)
+    mcts = MCTS[str, str](evaluate=evaluate_state, node_type=TestNode, c_puct=1, sims_per_move=1)
 
     root = TestNode(state=".", prior_prob=0.0)
     mcts.print_tree(root)
@@ -36,7 +36,7 @@ def test_mcts():
     assert root.nvisits == 0
     assert root.total_value == 0.0
     assert not root.children
-    mcts._simulate(root)
+    mcts.simulate(root)
     # mcts.print_tree(root)
     # print("\n\n")
     assert root.nvisits == 1
@@ -45,7 +45,7 @@ def test_mcts():
     assert root.children["L"].total_value == 0.0
     assert root.children["R"].nvisits == 0
     assert root.children["R"].total_value == 0.0
-    mcts._simulate(root)
+    mcts.simulate(root)
     # mcts.print_tree(root)
     # print("\n\n")
     assert root.nvisits == 2
@@ -58,7 +58,7 @@ def test_mcts():
     assert root.children["R"].children["L"].total_value == 0.0
     assert root.children["R"].children["R"].nvisits == 0
     assert root.children["R"].children["R"].total_value == 0.0
-    mcts._simulate(root)
+    mcts.simulate(root)
     # mcts.print_tree(root)
     assert root.nvisits == 3
     assert root.total_value == 1.0

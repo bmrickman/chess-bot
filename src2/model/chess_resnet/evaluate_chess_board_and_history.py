@@ -4,20 +4,22 @@ import chess
 import torch
 import torch.nn.functional as F
 
-from src2.model.resnet.board_encoding import encode_board
-from src2.model.resnet.move_translation import encode_move
-from src2.model.resnet.nn import model as default_model
+from src2.model.chess_resnet.board_encoding import encode_board
+from src2.model.chess_resnet.move_translation import encode_move
+from src2.model.chess_resnet.nn import get_model
 
 # perhaps evaluate should have a protocol to define a clean interface for swapping evaluations?
+device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+default_model = get_model(device)
 
 
-def evaluate_boards(
+def evaluate_boards_and_histories(
     boards_and_histories: list[tuple[chess.Board, list[chess.Board]]],
     model: Callable[[torch.Tensor], tuple[torch.Tensor, torch.Tensor]] = default_model,
 ) -> Iterable[tuple[float, dict[chess.Move, float]]]:
     with torch.no_grad():
         encoded_boards = [encode_board(board, history) for board, history in boards_and_histories]
-        cuda_board_states: torch.Tensor = torch.stack(encoded_boards).to("cuda")
+        cuda_board_states: torch.Tensor = torch.stack(encoded_boards).to(device)
         policy_logits, values = model(cuda_board_states)
         policies = F.softmax(policy_logits, dim=1).cpu()
         values = values.cpu()

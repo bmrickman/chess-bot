@@ -1,10 +1,10 @@
 import chess
+from environments.chess_environment import ChessEnvironment
 
-from src2.environments.chess_environment import ChessEnvironment
-from src2.gameplay.chess.mcts_chess_agent import MCTSChessAgent
+from src2.types import Agent, Environment
 
 
-def chess_self_play():
+def chess_self_play() -> None:
     environment = ChessEnvironment()
     player1 = MCTSChessAgent(starting_state=chess.Board())
     player2 = MCTSChessAgent(starting_state=chess.Board())
